@@ -2,6 +2,18 @@ package codin
 import "core:strings"
 import "core:fmt"
 
+codegen_generate :: proc(root: ^AST_Node) -> strings.Builder
+{
+    code_builder := strings.Builder{}
+    codegen_preamble(&code_builder)
+    result_reg := codegen_ast(&code_builder, root)
+    
+    fmt.sbprintf(&code_builder, "    mov rdi, %s\n", reg_list[result_reg].name)
+    fmt.sbprintf(&code_builder, "    call printint\n")
+    
+    codegen_postamble(&code_builder)
+    return code_builder
+}
 
 codegen_preamble :: proc(stream: ^strings.Builder)
 {
