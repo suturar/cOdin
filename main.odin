@@ -53,12 +53,14 @@ _main :: proc() -> int
     fmt.sbprintf(&code_builder, "    mov rdi, %s\n", reg_list[result_reg].name)
     fmt.sbprintf(&code_builder, "    call printint\n")
     codegen_postamble(&code_builder)
-    fmt.println("INFO: Dumping assembly to 'output.fasm'...")
-
+    
     output_asm := fmt.tprintf("%s.fasm", output_filename)
+    fmt.printfln("INFO: Dumping assembly to '%s'...", output_asm)
     os.write_entire_file(output_asm, code_builder.buf[:])
     if !execute_command(fmt.ctprintf("fasm %s %s.o", output_asm, output_filename)) do return 1
-    if !execute_command(fmt.ctprintf("ld -o %s %s.o lib.o" , output_filename, output_filename)) do return 1
+    if !execute_command(fmt.ctprintf("ld -o %s %s.o lib/lib.o" , output_filename, output_filename)) do return 1
+
+    fmt.printfln("INFO: Succesfully compiled '%s' into '%s'", filename, output_filename)
     
     delete(ast_node_pool)
     free_all(context.temp_allocator)
