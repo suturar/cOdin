@@ -5,32 +5,13 @@ import "core:fmt"
 
 codegen_preamble :: proc(stream: ^strings.Builder)
 {
-    preamble ::
-`format ELF64
-define SYS_WRITE 1
-define SYS_EXIT 60
-define STDOUT 1
-
-extrn printint
-    
-section '.text' executable
-    
-public _start
-_start:
-    
-`
+    preamble :: #load("ambles/preamble.fasm", string)
     fmt.sbprint(stream, preamble)
 }
 
 codegen_postamble :: proc(stream: ^strings.Builder)
 {
-    postamble ::
-    `
-    ; Exit routine
-    mov rax, SYS_EXIT
-    mov rdi, 0
-    syscall
-    `
+    postamble :: #load("ambles/postamble.fasm", string)
     fmt.sbprint(stream, postamble)
 }
 codegen_ast :: proc(stream: ^strings.Builder, node: ^AST_Node) -> int
