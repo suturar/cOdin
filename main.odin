@@ -58,14 +58,7 @@ _main :: proc() -> bool
 generate_assembly :: proc(data: []rune, filename: string) -> (code: strings.Builder, ok: bool)
 {
     lexer := Lexer{data = data, pos = {filename = filename}}
-    
-    fmt.println("INFO: Started parsing...")
-    root := parse_binexpr(&lexer) or_return
-    fmt.println("INFO: Finished parsing...")
-
-
-    fmt.println("INFO: Generating assembly...")
-    code = codegen_generate(root)
+    code = codegen_generate(&lexer)
     return code, true
 }
 

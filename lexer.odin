@@ -1,5 +1,7 @@
 package codin
 import "core:fmt"
+import "core:unicode"
+import "core:unicode/utf8"
 
 Position :: struct {
     ind: int,
@@ -24,7 +26,9 @@ Token_Kind :: enum {
     Newline,
     Open_Paren,
     Close_Paren,
+    Print,
     EOF,
+    Semicolon
 }
 
 Token :: struct {
@@ -85,9 +89,29 @@ lexer_reached_eof :: proc(using lexer: Lexer) -> bool
     return !(pos.ind < len(data))
 }
 
-lexer_next_token :: proc(using lexer: ^Lexer) -> (Token, bool)
+lexer_expect_token :: proc(lexer: ^Lexer, kind: Token_Kind) -> bool
 {
-    tok: Token
+    if tok, ok := lexer_next_token(lexer); ok {
+	if tok.kind != kind {
+	    fmt.printfln("ERROR: %s Expected token %v, found %v", position_tprint(tok.pos), kind, tok.kind)
+	    return false
+	} else {
+	    return true
+	}
+    } else {
+	return false
+    }
+}
+
+lexer_peek_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
+{
+    tok = lexer_next_token(lexer) or_return
+    lexer.pos = tok.pos
+    return tok, true
+}
+
+lexer_next_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
+{
     lexer_skip_whitespaces(lexer)
     char := lexer_next(lexer)
     tok.pos = pos
@@ -106,17 +130,60 @@ lexer_next_token :: proc(using lexer: ^Lexer) -> (Token, bool)
 	tok.kind = .Star
     case '/':
 	tok.kind = .Slash
+    case ';':
+	tok.kind = .Semicolon
     case '0'..<'9':
 	tok.kind = .Int_Literal
 	putback = char
 	tok.int_val = lexer_scan_int(lexer)
     case :
-	tok.kind = .Invalid
-	fmt.printfln("ERROR: %s Unexpected char '%c'", position_tprint(pos), char)
-	return tok, false
+	if unicode.is_alpha(char) {
+	    putback = char
+	    symbol := lexer_scan_symbol(lexer) or_return
+	    if kind, ok := keyword_from_symbol(symbol); ok {
+		tok.kind = kind
+	    } else {
+		tok.kind = .Invalid
+		fmt.println("ERROR: %s Unrecognized symbol '%s'", position_tprint(pos), symbol)
+		return 
+	    }
+	} else {
+	    tok.kind = .Invalid
+	    fmt.printfln("ERROR: %s Unexpected char '%c'", position_tprint(pos), char)
+	    return 
+	}
     }
     last_token = tok
     return tok, true
+}
+
+keyword_from_symbol :: proc(symbol: string) -> (Token_Kind, bool)
+{
+    switch symbol {
+    case "print":
+	return .Print, true
+    }
+    return .Invalid, true
+}
+lexer_scan_symbol :: proc(using lexer: ^Lexer) -> (symbol: string, ok: bool)
+{
+    // We know that len of text will be at least one since putback must be alpha
+    BUFF_LEN :: 512
+    @static buff : [BUFF_LEN]u8
+    index := 0
+    // We need to iter until we hit a non-alphanumeric character
+    
+    for {
+	char := lexer_next(lexer)
+	if !(unicode.is_digit(char) || unicode.is_alpha(char)) {
+	    putback = char
+	    break
+	}
+	b, n := utf8.encode_rune(char)
+	copy(buff[index:(index + n)], b[:n])
+	index += n
+    }
+    return string(buff[0:index]), true
 }
 
 lexer_scan_int :: proc(using lexer: ^Lexer) -> (num: C_int)

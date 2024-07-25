@@ -2,17 +2,42 @@ package codin
 import "core:strings"
 import "core:fmt"
 
-codegen_generate :: proc(root: ^AST_Node) -> strings.Builder
+codegen_generate :: proc(lexer: ^Lexer) -> strings.Builder
 {
-    code_builder := strings.Builder{}
-    codegen_preamble(&code_builder)
-    result_reg := codegen_ast(&code_builder, root)
-    
-    fmt.sbprintf(&code_builder, "    mov rdi, %s\n", reg_list[result_reg].name)
-    fmt.sbprintf(&code_builder, "    call printint\n")
-    
-    codegen_postamble(&code_builder)
-    return code_builder
+    stream := strings.Builder{}
+    codegen_preamble(&stream)
+    codegen_statements(lexer, &stream)
+    codegen_postamble(&stream)
+    return stream
+}
+
+codegen_printin :: proc(stream: ^strings.Builder, reg: int)
+{
+    fmt.sbprintfln(stream, "    ; Printint routine")
+    fmt.sbprintfln(stream, "    mov rdi, %s", reg_list[reg].name)
+    fmt.sbprintfln(stream, "    call printint")   
+}
+
+codegen_statements :: proc(lexer: ^Lexer, stream: ^strings.Builder) -> bool
+{
+    stmt_loop: for {
+	token := lexer_next_token(lexer) or_return
+	#partial switch token.kind {
+	    case .Print:
+	    root := parse_binexpr(lexer) or_return
+	    result_reg := codegen_ast(stream, root)
+	    codegen_printin(stream, result_reg)
+	    reg_freeall()
+	    case .EOF:
+	    break stmt_loop
+	    case:
+	    error_unexpected_token(token)
+	    return false
+	}
+	
+
+    }
+    return true
 }
 
 codegen_preamble :: proc(stream: ^strings.Builder)
