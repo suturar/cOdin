@@ -65,10 +65,11 @@ codegen_mul :: proc(stream: ^strings.Builder, left_reg, right_reg: int) -> int
 }
 codegen_div :: proc(stream: ^strings.Builder, left_reg, right_reg: int) -> int
 {
-    fmt.sbprintf(stream, "    ; Divide\n")
-    fmt.sbprintf(stream, "    mov rax, %s\n", reg_list[left_reg].name)
-    fmt.sbprintf(stream, "    idiv %s\n", reg_list[right_reg].name)
-    fmt.sbprintf(stream, "    mov  %s, rax\n", reg_list[left_reg].name)
+    fmt.sbprintfln(stream, "    ; Divide")
+    fmt.sbprintfln(stream, "    mov rax, %s", reg_list[left_reg].name)
+    fmt.sbprintfln(stream, "    cqo")
+    fmt.sbprintfln(stream, "    idiv %s", reg_list[right_reg].name)
+    fmt.sbprintfln(stream, "    mov  %s, rax", reg_list[left_reg].name)
     reg_free(right_reg)
     return left_reg
 }
