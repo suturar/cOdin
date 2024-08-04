@@ -58,7 +58,7 @@ _main :: proc() -> bool
 generate_assembly :: proc(data: []rune, filename: string) -> (code: strings.Builder, ok: bool)
 {
     lexer := Lexer{data = data, pos = {filename = filename}}
-    code = codegen_generate(&lexer)
+    code = codegen_generate(&lexer) or_return
     return code, true
 }
 
@@ -70,5 +70,9 @@ execute_command :: proc(command: cstring) -> bool
 
 main :: proc()
 {
-    if !_main() do os.exit(1)
+    if !_main()
+    {
+	fmt.println("ERROR: Could not compile program")
+	os.exit(1)
+    }
 }

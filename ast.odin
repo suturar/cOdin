@@ -37,24 +37,13 @@ ast_kind_from_token :: proc(tok: Token) -> (astk: AST_Node_Kind, ok: bool)
     return
 }
 
-operator_precedence :: proc(tok: Token) -> (prec: int, ok: bool)
-{
-    ok = true
-    #partial switch tok.kind {
-	case .Plus, .Minus:
-	prec = 10
-	case .Star, .Slash:
-	prec = 20
-	case:
-	error_unexpected_token(tok)
-	ok = false
-    }
-    return
-}
-
 error_unexpected_token :: proc(using tok: Token, loc := #caller_location)
 {
-    fmt.printfln("ERROR: %s Unexpected token %v", position_tprint(pos), tok.kind)
+    when false {
+	fmt.printfln("ERROR: %s Unexpected token %v", position_tprint(pos), tok.kind)
+    } else {
+	fmt.printfln("ERROR: %s Unexpected token %v from (%s)", position_tprint(pos), tok.kind, loc)
+    }
 }
 
 ast_node_make :: proc(kind: AST_Node_Kind, left: ^AST_Node, right: ^AST_Node, val: C_int) -> ^AST_Node

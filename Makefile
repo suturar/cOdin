@@ -5,6 +5,7 @@ build_examples: $(EXAMPLES_OUTPUT)
 
 output/%: build_codin input/%.c
 	./codin input/$*.c $@
+	@echo '-------------------------------'
 
 build_codin: lib/lib.o codin
 

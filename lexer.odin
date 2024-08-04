@@ -16,7 +16,8 @@ position_tprint :: proc(using pos: Position) -> string
 }
 
 Token_Kind :: enum {
-    Invalid,
+    Invalid = 0,
+
     Int_Literal, // i32
     Star,
     Plus,
@@ -27,21 +28,20 @@ Token_Kind :: enum {
     Open_Paren,
     Close_Paren,
     Print,
-    EOF,
-    Semicolon
+    Semicolon,
+    EOF
 }
 
 Token :: struct {
     kind: Token_Kind,
     int_val: C_int,
-    pos: Position
+    pos: Position,
+    text: string
 }
 
 Lexer :: struct {
     data: []rune,
     pos: Position,
-    putback: rune,
-    last_token: Token
 }
 
 
@@ -60,26 +60,27 @@ lexer_skip_whitespaces :: proc(using lexer: ^Lexer)
 
     for {
 	if lexer_reached_eof(lexer^) do return
-	c := lexer_next(lexer)
+	c := lexer_peek(lexer)
 	if !is_whitespace(c) {
-	    lexer.putback = c
 	    return 
 	}
+	lexer_next(lexer)
 	if c == '\n' {
 	    pos.line_ind = pos.ind - 1
 	    pos.line_n += 1
-	}	  
+	}
     }
+}
+
+lexer_peek :: proc(using lexer: ^Lexer) -> rune
+{
+    if lexer_reached_eof(lexer^) do return 0
+    return data[pos.ind]
 }
 
 lexer_next :: proc(using lexer: ^Lexer) -> rune
 {
     if lexer_reached_eof(lexer^) do return 0
-    if putback != 0 {
-	char := putback
-	putback = 0
-	return char
-    }
     pos.ind += 1
     return data[pos.ind - 1]
 }
@@ -89,17 +90,17 @@ lexer_reached_eof :: proc(using lexer: Lexer) -> bool
     return !(pos.ind < len(data))
 }
 
-lexer_expect_token :: proc(lexer: ^Lexer, kind: Token_Kind) -> bool
+lexer_expect_token :: proc(lexer: ^Lexer, kind: Token_Kind) -> (Token, bool)
 {
     if tok, ok := lexer_next_token(lexer); ok {
 	if tok.kind != kind {
 	    fmt.printfln("ERROR: %s Expected token %v, found %v", position_tprint(tok.pos), kind, tok.kind)
-	    return false
+	    return tok, false
 	} else {
-	    return true
+	    return tok, true
 	}
     } else {
-	return false
+	return tok, false
     }
 }
 
@@ -110,41 +111,50 @@ lexer_peek_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
     return tok, true
 }
 
+//
+// WARNING: Token.text survives only until the next keyword_from_symbol call, this may be bad
+//
 lexer_next_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
 {
     lexer_skip_whitespaces(lexer)
-    char := lexer_next(lexer)
     tok.pos = pos
+    char := lexer_peek(lexer)
     switch char {
     case 0:
 	tok.kind = .EOF
+	lexer_next(lexer)
     case '(':
 	tok.kind = .Open_Paren
+	lexer_next(lexer)
     case ')':
 	tok.kind = .Close_Paren
+	lexer_next(lexer)
     case '+':
 	tok.kind = .Plus
+	lexer_next(lexer)
     case '-':
 	tok.kind = .Minus
+	lexer_next(lexer)
     case '*':
 	tok.kind = .Star
+	lexer_next(lexer)
     case '/':
 	tok.kind = .Slash
+	lexer_next(lexer)
     case ';':
 	tok.kind = .Semicolon
+	lexer_next(lexer)
     case '0'..<'9':
 	tok.kind = .Int_Literal
-	putback = char
 	tok.int_val = lexer_scan_int(lexer)
     case :
 	if unicode.is_alpha(char) {
-	    putback = char
 	    symbol := lexer_scan_symbol(lexer) or_return
 	    if kind, ok := keyword_from_symbol(symbol); ok {
 		tok.kind = kind
 	    } else {
-		tok.kind = .Invalid
-		fmt.println("ERROR: %s Unrecognized symbol '%s'", position_tprint(pos), symbol)
+		/* tok.kind = .Identifier */
+		tok.text = symbol
 		return 
 	    }
 	} else {
@@ -153,7 +163,6 @@ lexer_next_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
 	    return 
 	}
     }
-    last_token = tok
     return tok, true
 }
 
@@ -162,9 +171,12 @@ keyword_from_symbol :: proc(symbol: string) -> (Token_Kind, bool)
     switch symbol {
     case "print":
 	return .Print, true
+    /* case "int": */
+	/* return .Int, true */
     }
-    return .Invalid, true
+    return .Invalid, false
 }
+
 lexer_scan_symbol :: proc(using lexer: ^Lexer) -> (symbol: string, ok: bool)
 {
     // We know that len of text will be at least one since putback must be alpha
@@ -174,11 +186,11 @@ lexer_scan_symbol :: proc(using lexer: ^Lexer) -> (symbol: string, ok: bool)
     // We need to iter until we hit a non-alphanumeric character
     
     for {
-	char := lexer_next(lexer)
+	char := lexer_peek(lexer)
 	if !(unicode.is_digit(char) || unicode.is_alpha(char)) {
-	    putback = char
 	    break
 	}
+	lexer_next(lexer)
 	b, n := utf8.encode_rune(char)
 	copy(buff[index:(index + n)], b[:n])
 	index += n
@@ -198,14 +210,13 @@ lexer_scan_int :: proc(using lexer: ^Lexer) -> (num: C_int)
     }
 
     for {
-	char := lexer_next(lexer)
-	digit, unfinished := int_from_digit(char)
-	if !unfinished {
-	    lexer.putback = char
+	char := lexer_peek(lexer)
+	digit, keep_on := int_from_digit(char)
+	if !keep_on {
 	    break
 	}
+	lexer_next(lexer)
 	num = num * 10 + digit
     }
-
     return
 }
