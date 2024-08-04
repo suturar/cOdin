@@ -1,10 +1,10 @@
-EXAMPLES_INPUT=$(wildcard input/*.c)
-EXAMPLES_OUTPUT=$(addprefix output/,$(notdir $(basename $(EXAMPLES_INPUT))))
+EXAMPLES_INPUT=$(wildcard examples/src/*.c)
+EXAMPLES_OUTPUT=$(addprefix examples/out/,$(notdir $(basename $(EXAMPLES_INPUT))))
 
 build_examples: $(EXAMPLES_OUTPUT) 
 
-output/%: build_codin input/%.c
-	./codin input/$*.c $@
+examples/out/%: build_codin examples/src/%.c
+	./codin examples/src/$*.c $@
 	@echo '-------------------------------'
 
 build_codin: lib/lib.o codin
@@ -15,5 +15,5 @@ lib/lib.o: $(wildcard lib/*.odin)
 	odin build lib -error-pos-style:unix -build-mode:object -default-to-nil-allocator -no-entry-point -no-crt -out:lib/lib.o
 clean:
 	rm codin lib/lib.o
-	rm output/*
+	rm examples/out/*
 
