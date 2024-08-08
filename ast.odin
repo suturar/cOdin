@@ -1,6 +1,5 @@
 package codin
 import "core:fmt"
-
 AST_Node_Kind :: enum {
     Add,
     Multiply,
@@ -39,11 +38,7 @@ ast_kind_from_token :: proc(tok: Token) -> (astk: AST_Node_Kind, ok: bool)
 
 error_unexpected_token :: proc(using tok: Token, loc := #caller_location)
 {
-    when false {
-	fmt.printfln("ERROR: %s Unexpected token %v", position_tprint(pos), tok.kind)
-    } else {
-	fmt.printfln("ERROR: %s Unexpected token %v from (%s)", position_tprint(pos), tok.kind, loc)
-    }
+    logf_pos(.Error, pos, "%s Unexpected token %v", position_tprint(pos), tok.kind, loc = loc)
 }
 
 ast_node_make :: proc(kind: AST_Node_Kind, left: ^AST_Node, right: ^AST_Node, val: C_int) -> ^AST_Node
@@ -62,12 +57,12 @@ ast_unitary_make :: proc(kind: AST_Node_Kind, left: ^AST_Node, val: C_int) -> ^A
 
 ast_dump :: proc(root: ^AST_Node, indentation: int = 0)
 {
-    if indentation == 0 do fmt.println("===DUMPING AST===")
-    for _ in 0..<indentation do fmt.print(" ")
-    fmt.printfln("Node: kind = %s, val = %i", root.kind, root.int_val)
+    if indentation == 0 do fmt.printf("===DUMPING AST===\n")
+    for _ in 0..<indentation do fmt.printf(" ")
+    fmt.printf("Node: kind = %s, val = %i\n", root.kind, root.int_val)
     if root.left != nil do ast_dump(root.left, indentation + 4)
     if root.right != nil do ast_dump(root.right, indentation + 4)
-    if indentation == 0 do fmt.println("=================")
+    if indentation == 0 do fmt.printf("=================\n")
 }
 
 

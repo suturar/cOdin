@@ -6,24 +6,24 @@ codegen_generate :: proc(lexer: ^Lexer) -> (stream: strings.Builder, ok: bool)
 {
     codegen_preamble(&stream)
     codegen_statements(lexer, &stream) or_return
-    codegen_postamble(&stream)
+    codegen_exit_routine(&stream)
+    codegen_bss_section(&stream)
     return stream, true
-}
-
-codegen_printin :: proc(stream: ^strings.Builder, reg: int)
-{
-    fmt.sbprintfln(stream, "    ; Printint routine")
-    fmt.sbprintfln(stream, "    mov rdi, %s", reg_list[reg].name)
-    fmt.sbprintfln(stream, "    call printint")   
 }
 
 codegen_statements :: proc(lexer: ^Lexer, stream: ^strings.Builder) -> bool
 {
     stmt_loop: for {
-	token := lexer_next_token(lexer) or_return
+	token := lexer_peek_token(lexer) or_return
 	#partial switch token.kind {
 	    case .Print:
+	    lexer_next_token(lexer)
 	    codegen_print_statement(lexer, stream) or_return
+	    case .Int:
+	    lexer_next_token(lexer)
+	    codegen_var_declaration(lexer, stream) or_return
+	    case .Identifier:
+	    codegen_var_assignment(lexer, stream) or_return
 	    case .EOF:
 	    break stmt_loop
 	    case:
@@ -35,11 +35,39 @@ codegen_statements :: proc(lexer: ^Lexer, stream: ^strings.Builder) -> bool
     return true
 }
 
+codegen_var_assignment :: proc(lexer: ^Lexer, stream: ^strings.Builder) -> bool
+{
+    buff : [1024]u8
+    tok_var, _ := lexer_next_token(lexer)
+    var_name : string
+    {
+	n := copy(buff[:], tok_var.text)
+	var_name = string(buff[:n])
+    }
+    lexer_expect_token(lexer, .Equal) or_return
+    root := parse_binexpr(lexer) or_return
+    
+    result_reg := codegen_ast(stream, root)
+    fmt.sbprintfln(stream, "    ; Loading register into variable")
+    fmt.sbprintfln(stream, "    mov [%s], %s", var_name, reg_list[result_reg].name)
+
+    return true
+}
+codegen_var_declaration :: proc(lexer: ^Lexer, stream: ^strings.Builder) -> bool
+{
+    tok := lexer_expect_token(lexer, .Identifier) or_return
+    if !symbol_table_add(tok.text) {
+	logf_pos(.Error, tok.pos, "Redefinition of identifier '%s'", tok.text)
+    }
+    return true
+}
 codegen_print_statement :: proc(lexer: ^Lexer, stream: ^strings.Builder) -> bool
 {
     root := parse_binexpr(lexer) or_return
     result_reg := codegen_ast(stream, root)
-    codegen_printin(stream, result_reg)
+    fmt.sbprintfln(stream, "    ; Printint routine")
+    fmt.sbprintfln(stream, "    mov rdi, %s", reg_list[result_reg].name)
+    fmt.sbprintfln(stream, "    call printint")   
     reg_freeall()
     return true
 }
@@ -49,10 +77,19 @@ codegen_preamble :: proc(stream: ^strings.Builder)
     fmt.sbprint(stream, preamble)
 }
 
-codegen_postamble :: proc(stream: ^strings.Builder)
+codegen_bss_section :: proc(stream: ^strings.Builder)
 {
-    postamble :: #load("ambles/postamble.fasm", string)
-    fmt.sbprint(stream, postamble)
+    fmt.sbprintfln(stream, "section '.bss'")
+    for symbol_key, symbol in symbol_table
+    {
+	fmt.sbprintfln(stream, "    public %s", symbol_key)
+	fmt.sbprintfln(stream, "    %s:  rb 8", symbol_key)
+    }
+}
+codegen_exit_routine :: proc(stream: ^strings.Builder)
+{
+    exit_routine :: #load("ambles/exit_routine.fasm", string)
+    fmt.sbprint(stream, exit_routine)
 }
 codegen_ast :: proc(stream: ^strings.Builder, node: ^AST_Node) -> int
 {

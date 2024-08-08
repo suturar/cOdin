@@ -14,6 +14,7 @@ parse_terminal :: proc(tok: Token) -> (^AST_Node, bool)
 operator_precedence :: proc(tok: Token) -> (prec: int, ok: bool)
 {
     ok = true
+    
     #partial switch tok.kind {
 	case .Plus, .Minus:
 	prec = 10

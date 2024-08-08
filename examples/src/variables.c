@@ -1,6 +1,4 @@
-int x = 10;
-int y = 5;
-print x + y;
-print x - y;
-print x * y;
-print x / y;
+int x;
+int y;
+x = 1 + 123 * 3;
+y = 5 - 123 + 3;

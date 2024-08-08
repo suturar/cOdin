@@ -6,7 +6,7 @@ import "core:unicode"
 import "core:strings"
 import "core:c/libc"
 
-C_int :: i32
+C_int :: i64
 
 usage :: proc()
 {
@@ -18,7 +18,7 @@ usage :: proc()
 _main :: proc() -> bool
 {
     if len(os.args) < 2 {
-	fmt.println("ERROR: No input file")
+	logf(.Error, "No input file\n")
 	usage()
 	return false
     }
@@ -32,7 +32,7 @@ _main :: proc() -> bool
     u8_data, ok := os.read_entire_file(filename)
     defer delete(u8_data)
     if !ok {
-	fmt.printfln("Could not load file '%s'", filename)
+	logf(.Error, " Could not load file '%s'\n", filename)
 	return false
     }
     data := utf8.string_to_runes(string(u8_data))
@@ -42,13 +42,13 @@ _main :: proc() -> bool
     defer strings.builder_destroy(&code)
     
     output_asm := fmt.tprintf("%s.fasm", output_filename)    
-    fmt.printfln("INFO: Dumping assembly  to '%s'...", output_asm)
+    logf(.Info, "Dumping assembly  to '%s'...", output_asm)
     os.write_entire_file(output_asm, code.buf[:])
     
     execute_command(fmt.ctprintf("fasm %s %s.o", output_asm, output_filename)) or_return
     execute_command(fmt.ctprintf("ld -o %s %s.o lib/lib.o" , output_filename, output_filename)) or_return
 
-    fmt.printfln("INFO: Succesfully compiled '%s' into '%s'", filename, output_filename)
+    logf(.Info, "Succesfully compiled '%s' into '%s'", filename, output_filename)
     
     delete(ast_node_pool)
     free_all(context.temp_allocator)
@@ -64,7 +64,7 @@ generate_assembly :: proc(data: []rune, filename: string) -> (code: strings.Buil
 
 execute_command :: proc(command: cstring) -> bool
 {
-    fmt.printfln("INFO: Executing command '%s'", command)
+    logf(.Info, "Executing command '%s'", command)
     return libc.system(command) == 0
 }
 
@@ -72,7 +72,7 @@ main :: proc()
 {
     if !_main()
     {
-	fmt.println("ERROR: Could not compile program")
+	logf(.Error, " Could not compile program")
 	os.exit(1)
     }
 }

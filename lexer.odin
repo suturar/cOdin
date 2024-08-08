@@ -1,7 +1,7 @@
 package codin
-import "core:fmt"
 import "core:unicode"
 import "core:unicode/utf8"
+import "core:fmt"
 
 Position :: struct {
     ind: int,
@@ -10,19 +10,19 @@ Position :: struct {
     filename: string
 }
 
-position_tprint :: proc(using pos: Position) -> string
-{
-    return fmt.tprintf("%s:%i:%i:",filename, line_n + 1, ind - line_ind)
-}
-
 Token_Kind :: enum {
     Invalid = 0,
 
     Int_Literal, // i32
+    Int, // int keyword
+    
+    Identifier,
+
     Star,
     Plus,
     Minus,
     Slash,
+    Equal,
     Integer,
     Newline,
     Open_Paren,
@@ -94,7 +94,7 @@ lexer_expect_token :: proc(lexer: ^Lexer, kind: Token_Kind) -> (Token, bool)
 {
     if tok, ok := lexer_next_token(lexer); ok {
 	if tok.kind != kind {
-	    fmt.printfln("ERROR: %s Expected token %v, found %v", position_tprint(tok.pos), kind, tok.kind)
+	    logf_pos(.Error, tok.pos, "Expected token %v, found %v\n", kind, tok.kind)
 	    return tok, false
 	} else {
 	    return tok, true
@@ -144,6 +144,9 @@ lexer_next_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
     case ';':
 	tok.kind = .Semicolon
 	lexer_next(lexer)
+    case '=':
+	tok.kind = .Equal
+	lexer_next(lexer)
     case '0'..<'9':
 	tok.kind = .Int_Literal
 	tok.int_val = lexer_scan_int(lexer)
@@ -153,13 +156,12 @@ lexer_next_token :: proc(using lexer: ^Lexer) -> (tok: Token, ok: bool)
 	    if kind, ok := keyword_from_symbol(symbol); ok {
 		tok.kind = kind
 	    } else {
-		/* tok.kind = .Identifier */
+		tok.kind = .Identifier
 		tok.text = symbol
-		return 
 	    }
 	} else {
 	    tok.kind = .Invalid
-	    fmt.printfln("ERROR: %s Unexpected char '%c'", position_tprint(pos), char)
+	    logf_pos(.Error, pos, "Unexpected char '%c'x", char)
 	    return 
 	}
     }
@@ -171,8 +173,8 @@ keyword_from_symbol :: proc(symbol: string) -> (Token_Kind, bool)
     switch symbol {
     case "print":
 	return .Print, true
-    /* case "int": */
-	/* return .Int, true */
+    case "int":
+	return .Int, true
     }
     return .Invalid, false
 }
